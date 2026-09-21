@@ -1,67 +1,106 @@
 import { useState } from 'react';
 import { planStore, type PlanState } from '../planStore';
 
+function StatsOverview({ plan }: { plan: PlanState }) {
+  const totalWork = plan.work.length;
+  const totalHours = plan.studySessions.reduce((acc, s) => acc + s.duration, 0) || plan.studyPlan?.totalHours || 0;
+  const totalSessions = plan.studySessions.length;
+  
+  // Find nearest deadline
+  const deadlines = plan.work
+    .map((w) => w.deadline)
+    .filter(Boolean)
+    .sort();
+  const nextDeadline = deadlines[0] ? deadlines[0] : 'None';
+
+  return (
+    <div className="stats-grid">
+      <div className="stat-card stat-card--purple">
+        <div className="stat-card__icon">📚</div>
+        <div className="stat-card__label">Active Tasks</div>
+        <div className="stat-card__value">{totalWork}</div>
+        <div className="stat-card__sub">Assignments & Exams</div>
+      </div>
+
+      <div className="stat-card stat-card--cyan">
+        <div className="stat-card__icon">⏱️</div>
+        <div className="stat-card__label">Planned Study</div>
+        <div className="stat-card__value">{totalHours} hrs</div>
+        <div className="stat-card__sub">Total calculated workload</div>
+      </div>
+
+      <div className="stat-card stat-card--emerald">
+        <div className="stat-card__icon">🎯</div>
+        <div className="stat-card__label">Study Sessions</div>
+        <div className="stat-card__value">{totalSessions}</div>
+        <div className="stat-card__sub">Validated AI blocks</div>
+      </div>
+
+      <div className="stat-card stat-card--amber">
+        <div className="stat-card__icon">📅</div>
+        <div className="stat-card__label">Next Due</div>
+        <div className="stat-card__value" style={{ fontSize: '16px', paddingTop: '6px' }}>
+          {nextDeadline}
+        </div>
+        <div className="stat-card__sub">Earliest submission</div>
+      </div>
+    </div>
+  );
+}
+
 function ApprovalGate({ plan }: { plan: PlanState }) {
   const [note, setNote] = useState('');
-
   const studyPlan = plan.studyPlan;
 
   if (!studyPlan) return null;
 
   return (
-    <div className="plan-card">
-      <div className="plan-card__flag">
-        Check the study plan before it is added
+    <div className="approval-card">
+      <div className="approval-card__badge">
+        <span>⚡ Human Approval Required</span>
       </div>
 
-      <h2>{studyPlan.title}</h2>
+      <h2 className="approval-card__title">{studyPlan.title}</h2>
+      <p className="approval-card__objective">{studyPlan.objective}</p>
 
-      <p className="plan-card__gist">
-        {studyPlan.objective}
-      </p>
-
-      <div className="plan-card__meta">
-        <span>{studyPlan.totalHours} hours</span>
-        <span>{studyPlan.sessions.length} sessions</span>
+      <div className="approval-card__meta">
+        <span className="approval-card__chip">⏱️ {studyPlan.totalHours} Hours Total</span>
+        <span className="approval-card__chip">📝 {studyPlan.sessions.length} Planned Sessions</span>
       </div>
 
-      <ol className="plan-card__beats">
+      <div className="approval-sessions">
         {studyPlan.sessions.map((session, index) => (
-          <li key={index}>
-            <strong>
-              {session.title}
-              <span className="plan-card__mins">
-                {session.duration}h
-              </span>
-            </strong>
-
-            <span>{session.subject}</span>
-          </li>
+          <div className="approval-session-item" key={index}>
+            <div className="approval-session-item__info">
+              <span className="approval-session-item__title">{session.title}</span>
+              <span className="approval-session-item__subject">{session.subject}</span>
+            </div>
+            <span className="duration-badge">{session.duration}h block</span>
+          </div>
         ))}
-      </ol>
+      </div>
 
       {plan.awaitingApproval ? (
-        <div className="plan-card__actions">
+        <div className="approval-actions">
           <input
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Or say what should change…"
+            placeholder="Feedback / requested changes for AI agent…"
             aria-label="Requested change"
           />
 
           <button
-            className="btn btn--ghost"
+            className="btn btn--secondary btn--sm"
             disabled={!note.trim()}
             onClick={() => {
               planStore.resolveApproval({
                 approved: false,
                 note: note.trim(),
               });
-
               setNote('');
             }}
           >
-            Request changes
+            Request Revision
           </button>
 
           <button
@@ -72,12 +111,12 @@ function ApprovalGate({ plan }: { plan: PlanState }) {
               })
             }
           >
-            Approve &amp; create
+            Approve &amp; Schedule
           </button>
         </div>
       ) : (
-        <div className="plan-card__approved">
-          Approved
+        <div style={{ color: 'var(--accent-emerald)', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>✓</span> Plan approved by student
         </div>
       )}
     </div>
@@ -87,42 +126,51 @@ function ApprovalGate({ plan }: { plan: PlanState }) {
 function WorkList({ plan }: { plan: PlanState }) {
   if (!plan.work.length) {
     return (
-      <div className="empty__hint">
-        No college work has been added yet.
+      <div style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', padding: '24px 0' }}>
+        No college tasks found. Click "+ Add Work" to create one or run the AI planning.
       </div>
     );
   }
 
   return (
-    <section className="questions">
-      <h2 className="questions__title">
-        My College Work
-      </h2>
+    <section>
+      <div className="section-header">
+        <div className="section-title">
+          <span>College Coursework &amp; Exams</span>
+          <span className="section-title__badge">{plan.work.length}</span>
+        </div>
+      </div>
 
-      {plan.work.map((item) => (
-        <div className="question" key={item.id}>
-          <div className="question__head">
-            <span className="question__num">
-              {item.type.toUpperCase()}
-            </span>
+      <div className="cards-grid">
+        {plan.work.map((item) => (
+          <div className="work-card" key={item.id}>
+            <div className="work-card__top">
+              <div>
+                <h3 className="work-card__title">{item.title}</h3>
+                <div className="work-card__subject">{item.subject}</div>
+              </div>
+              <span className={`type-pill type-pill--${item.type}`}>
+                {item.type}
+              </span>
+            </div>
 
-            <span className="question__kind">
-              {item.subject}
-            </span>
-          </div>
+            <div className="work-card__bottom">
+              <div className="work-card__deadline">
+                <span>📅</span> {item.deadline}
+              </div>
 
-          <p className="question__prompt">
-            {item.title}
-          </p>
-
-          <div className="question__keys">
-            <div>
-              <span>Deadline</span>
-              {item.deadline}
+              <button
+                className="btn btn--danger btn--sm"
+                style={{ padding: '4px 8px', fontSize: '11px' }}
+                title="Remove task"
+                onClick={() => planStore.deleteWork(item.id)}
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }
@@ -133,66 +181,28 @@ function StudySessions({ plan }: { plan: PlanState }) {
   }
 
   return (
-    <section className="questions">
-      <h2 className="questions__title">
-        AI Study Plan
-      </h2>
+    <section>
+      <div className="section-header">
+        <div className="section-title">
+          <span>Validated AI Study Timeline</span>
+          <span className="section-title__badge">{plan.studySessions.length}</span>
+        </div>
+      </div>
 
-      {plan.studySessions.map((session, index) => (
-        <div className="question" key={session.id}>
-          <div className="question__head">
-            <span className="question__num">
-              {index + 1}
-            </span>
-
-            <span className="question__kind">
-              {session.duration} hour
-              {session.duration !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          <p className="question__prompt">
-            {session.title}
-          </p>
-
-          <div className="question__keys">
-            <div>
-              <span>Subject</span>
-              {session.subject}
+      <div className="timeline">
+        {plan.studySessions.map((session, index) => (
+          <div className="timeline-item" key={session.id}>
+            <div className="timeline-item__left">
+              <div className="timeline-item__num">{index + 1}</div>
+              <div className="timeline-item__content">
+                <span className="timeline-item__title">{session.title}</span>
+                <span className="timeline-item__subject">{session.subject}</span>
+              </div>
             </div>
+            <span className="duration-badge">{session.duration} hour{session.duration !== 1 ? 's' : ''}</span>
           </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function ActionLog({ plan }: { plan: PlanState }) {
-  if (!plan.log.length) return null;
-
-  return (
-    <section className="questions">
-      <h2 className="questions__title">
-        Agent Actions
-      </h2>
-
-      {plan.log.map((entry) => (
-        <div className="question" key={entry.id}>
-          <div className="question__head">
-            <span className="question__num">
-              {entry.ok ? '✓' : '✕'}
-            </span>
-
-            <span className="question__kind">
-              {entry.tool}
-            </span>
-          </div>
-
-          <p className="question__prompt">
-            {entry.detail}
-          </p>
-        </div>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }
@@ -209,64 +219,43 @@ export function PlanCanvas({
   if (
     plan.status === 'empty' &&
     !plan.studyPlan &&
-    plan.studySessions.length === 0
+    plan.studySessions.length === 0 &&
+    plan.work.length === 0
   ) {
     return (
-      <div className="paper paper--empty">
-        <div className="empty">
-          <h1>College Work Planner</h1>
+      <div className="empty-hero">
+        <div className="empty-hero__icon">🎓</div>
+        <h1 className="empty-hero__title">College Work Planner</h1>
+        <p className="empty-hero__desc">
+          Your AI study assistant reads your assignments, exams, and projects,
+          proposes an optimized study schedule, waits for your approval, and automatically builds your calendar.
+        </p>
 
-          <p>
-            Your AI study assistant reads your assignments,
-            exams, and projects, proposes a study plan,
-            waits for your approval, and then creates the
-            study sessions for you.
-          </p>
-
-          <p className="empty__try">
-            Try:
-            <em>
-              “Help me plan my Computer Networks assignment
-              and Operating Systems exam.”
-            </em>
-          </p>
-
-          <button
-            className="btn btn--primary"
-            onClick={onRunMock}
-            disabled={mockRunning}
-          >
-            {mockRunning
-              ? 'Running…'
-              : 'Run the mocked planning'}
-          </button>
-
-          <p className="empty__hint">
-            The mocked run uses the same agent tools and
-            works without an API key.
-          </p>
+        <div className="empty-hero__prompt">
+          “Help me plan my Computer Networks assignment and Operating Systems exam.”
         </div>
+
+        <button
+          className="btn btn--primary"
+          style={{ padding: '12px 28px', fontSize: '14px' }}
+          onClick={onRunMock}
+          disabled={mockRunning}
+        >
+          {mockRunning ? 'Running Mock Workflow…' : '🚀 Run Mocked AI Planning'}
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="paper">
-      {plan.studyPlan && (
-        <ApprovalGate plan={plan} />
-      )}
+    <div className="canvas__container">
+      <StatsOverview plan={plan} />
+
+      {plan.studyPlan && <ApprovalGate plan={plan} />}
 
       <WorkList plan={plan} />
 
       <StudySessions plan={plan} />
-
-      <ActionLog plan={plan} />
-
-      {plan.status === 'ready' && (
-        <div className="published">
-          Study plan completed successfully.
-        </div>
-      )}
     </div>
   );
 }

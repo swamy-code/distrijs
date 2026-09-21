@@ -1,14 +1,15 @@
 ---
 name = "college_work_planner_agent"
+
 description = "Plans college assignments, exams, and projects: reads current work, proposes a study plan for approval, then creates validated study sessions and files the completed plan in the app"
+
 max_iterations = 24
+
 tool_format = "provider"
 
 [tools]
-external = ["*"]
 
-[model_settings]
-model = "gemini/gemini-2.5-flash"
+external = ["*"]
 ---
 
 # ROLE
